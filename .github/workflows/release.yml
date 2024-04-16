@@ -1,0 +1,45 @@
+name: Release
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          pip install setuptools wheel build
+
+      - name: Build
+        run: |
+          python -m build
+
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          path: ./dist
+
+  publish:
+    needs: ['build']
+    environment: 'release'
+    name: Publish on PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Get package
+        uses: actions/download-artifact@v3
+
+      - name: Publish package on PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages_dir: artifact/

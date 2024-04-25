@@ -128,7 +128,8 @@ def efun_profile_call(result: ldmud.Lvalue, fun: ldmud.Closure, *args) -> profil
         raise TypeError("Bad arg 1 to profile_call(): expected mixed &.")
 
     pr = profile_result()
-    stack = [None] * (len(ldmud.call_stack) - 1)
+    start_depth = len(ldmud.call_stack) - 1
+    stack = [None] * start_depth
     last = PreviousLine()
     last.eval_cost = ldmud.call_stack[-1].eval_cost
     last.ns = time_ns()
@@ -140,6 +141,10 @@ def efun_profile_call(result: ldmud.Lvalue, fun: ldmud.Closure, *args) -> profil
         cur_fname = cur_frame.file_name
         cur_ns = time_ns()
         cur_depth = len(ldmud.call_stack) - 1 # Don't use the current frame.
+
+        # Safeguard
+        if cur_depth < start_depth:
+            ldmud.unregister_hook(ldmud.BEFORE_INSTRUCTION, hook)
 
         if last.fname and last.line_number:
             pr.add_line_info(last.fname, last.line_number, max(1, cur_frame.eval_cost - last.eval_cost), cur_ns - last.ns)

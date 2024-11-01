@@ -20,9 +20,12 @@ setuptools.setup(
     entry_points={
         'ldmud_efun': [
             'profile_call   = ldmud_tracing.profile:efun_profile_call',
+            'trace_call     = ldmud_tracing.tracing:efun_trace_call',
         ],
         'ldmud_type': [
             'profile_result = ldmud_tracing.profile:profile_result',
+            'trace_result   = ldmud_tracing.tracing:trace_result',
+            'trace_cursor   = ldmud_tracing.tracing:trace_cursor',
         ]
     },
     zip_safe=False,

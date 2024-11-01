@@ -115,6 +115,9 @@ def efun_profile_call(result: ldmud.Lvalue, fun: ldmud.Closure, *args) -> profil
                 int is_empty()
                     Returns a value != 0, if there was no information
                     collected.
+
+    SEE ALSO
+            trace_call
     """
 
     @dataclasses.dataclass

@@ -1,4 +1,5 @@
 import ldmud, time
+from . import formatting
 
 time_ns = getattr(time, 'time_ns', None)
 if not time_ns:
@@ -14,6 +15,10 @@ class Step:
         self.eval_cost = frame.eval_cost
         self.eval_time = ns
         self.calls = []
+        self.variables = {}
+
+    def add_variable(self, name, value):
+        self.variables[name] = value
 
 class trace_cursor:
     def __init__(self, steps, pos):
@@ -69,6 +74,9 @@ class trace_cursor:
     def lpc_get_time(self) -> int:
         return self.current.eval_time
 
+    def lpc_get_variables(self) -> int:
+        return ldmud.Mapping(self.current.variables)
+
     def __efun_call_strict__(self, fun: str, *args):
         return getattr(self, "lpc_" + fun)(*args)
 
@@ -104,6 +112,9 @@ trace_call_options = ldmud.register_struct("trace_call_options", None, (
     ('max_depth', int,),
     ('exclude', ldmud.Mapping,),
     ('only', ldmud.Mapping,),
+    ('capture_local_variables', int,),
+    ('variable_format_depth', int,),
+    ('variable_format_compact', int,),
 ))
 
 def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.Closure, *args) -> trace_result:
@@ -136,6 +147,21 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
                 mapping only
                     A 0-width mapping containing objects, file or program names
                     that should only be traced.
+
+                int capture_local_variables
+                    Whether the values of local variables shall be captured.
+                    When capturing they will be formatted as strings, so the
+                    original value will not be copied/stored.
+
+                int variable_format_depth
+                    For formatting of nested data structures (arrays, mappings,
+                    structs) specifies the depth for formatting. 0 (default)
+                    means only the immediate values are shown, not any array/
+                    mapping/struct members. To show the whole datastructure,
+                    pass -1.
+
+                int variable_format_compact
+                    Whether to use compact format.
 
             This function raises a privilege violation("trace_call", object, opts, fun).
             The master can change the options when checking privileges.
@@ -185,6 +211,11 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
                     Returns the number of nano-seconds elapsed to this
                     position from the start of evaluation.
 
+                mapping get_variables()
+                    Returns a mapping of variable names to a string
+                    representing their values. Only populated when
+                    <capture_local_variables> flag is true.
+
     SEE ALSO
             profile_call
     """
@@ -205,6 +236,11 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
     max_depth = opts.members.max_depth.value
     exclude = opts.members.exclude.value
     include = opts.members.only.value
+
+    if opts.members.capture_local_variables.value:
+        formatter = formatting.LDMudFormatter(max_depth = opts.members.variable_format_depth.value, compact = opts.members.variable_format_compact.value != 0)
+    else:
+        formatter = None
 
     tr = trace_result()
     start_depth = len(ldmud.call_stack) + 1
@@ -261,6 +297,10 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
         step = Step(cur_frame, cur_ns - last_ns)
         if not allow_frame(step):
             return
+
+        if formatter is not None:
+            for name, var in cur_frame.variables.__dict__.items():
+                step.add_variable(name, formatter.format(var.value))
 
         parent_idx = cur_depth - start_depth
         if len(stack) > parent_idx + 1:

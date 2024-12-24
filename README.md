@@ -4,9 +4,12 @@ Python package to provide tracing information to LPC.
 
 This package provides the following types:
  * `profile_result`
+ * `trace_result`
+ * `trace_cursor`
 
 This package contains the following efuns:
  * `profile_result profile_call(mixed& result, closure fun, mixed arg, ...)`
+ * `trace_result trace_call(struct trace_call_options opts, mixed& result, closure fun, mixed arg, ...)`
 
 ## Usage
 
@@ -57,5 +60,19 @@ which needs to be passed as a reference.
 The efun will return a `profile_result` object. This object provides evaluation
 cost and elapsed time information for each executed LPC code line. A complete
 list of functions is available in the efun documentation.
+
+## Tracing
+
+The `trace_call` efun evaluates the given closure, any extra arguments will
+be passed to the closure. The result will be assigned to the first argument
+which needs to be passed as a reference.
+
+The efun will return a `trace_result` object. This object provides two
+functions: `begin()` and `end()`, which will return a `trace_cursor`
+object. The `trace_cursor` object contains the information for a specific
+point in time (`get_object()`, `get_program_name()`, `get_file_name()`,
+`get_line_number()`, `get_eval_cost()`, `get_time()` and `get_variables()`),
+and allows to move through the trace (`step_into()`, `step_over()` and
+`step_out()`).
 
 Have fun!

@@ -15,10 +15,13 @@ class Step:
         self.eval_cost = frame.eval_cost
         self.eval_time = ns
         self.calls = []
-        self.variables = {}
+        self.variables_dict = {} # name: [indices into self.variables]
+        self.variables = []
 
     def add_variable(self, name, value):
-        self.variables[name] = value
+        # This is emulating a ordered multi dict.
+        self.variables_dict.setdefault(name, []).append(len(self.variables))
+        self.variables.append((name, value,))
 
 class trace_cursor:
     def __init__(self, steps, pos):
@@ -74,8 +77,11 @@ class trace_cursor:
     def lpc_get_time(self) -> int:
         return self.current.eval_time
 
-    def lpc_get_variables(self) -> int:
-        return ldmud.Mapping(self.current.variables)
+    def lpc_get_variables(self) -> ldmud.Array[ldmud.Array[ldmud.String]]:
+        return ldmud.Array(ldmud.Array(var) for var in self.current.variables)
+
+    def lpc_get_variable(self, name: str) -> ldmud.Array[ldmud.String]:
+        return ldmud.Array(self.current.variables[idx][1] for idx in self.current.variables_dict.get(name, []))
 
     def __efun_call_strict__(self, fun: str, *args):
         return getattr(self, "lpc_" + fun)(*args)
@@ -211,10 +217,18 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
                     Returns the number of nano-seconds elapsed to this
                     position from the start of evaluation.
 
-                mapping get_variables()
-                    Returns a mapping of variable names to a string
-                    representing their values. Only populated when
+                string** get_variables()
+                    Returns an array of all local variables. Each entry is an
+                    array ({ name, value }), where the value is the original
+                    value formatted into a string. This is only populated when
                     <capture_local_variables> flag is true.
+
+                string* get_variable(string name)
+                    Returns an array with the values of all local variables
+                    with that name. The returned array can be empty if there
+                    was no such variable or contain more than one entries when
+                    there were multiple variables with the same name (which is
+                    discouraged and usually leads to a compiler warning).
 
     SEE ALSO
             profile_call

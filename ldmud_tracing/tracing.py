@@ -124,6 +124,13 @@ trace_call_options = ldmud.register_struct("trace_call_options", None, (
     ('variable_format_compact', int,),
 ))
 
+def partition(values, condition):
+    if values is None or values is 0:
+        return (None, None)
+
+    values_and_condition = [(value, condition(value)) for value in values]
+    return ([value for (value, cond) in values_and_condition if cond], [value for (value, cond) in values_and_condition if not cond])
+
 def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.Closure, *args) -> trace_result:
     """
     SYNOPSIS
@@ -149,11 +156,15 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
 
                 mapping exclude
                     A 0-width mapping containing objects, file or program names
-                    that shouldn't be traced.
+                    that shouldn't be traced. It can also contain directory
+                    names (strings ending with a slash), then all files in the
+                    directory and its subdirectories are excluded.
 
                 mapping only
                     A 0-width mapping containing objects, file or program names
-                    that should only be traced.
+                    that should only be traced. It can also contain directory
+                    names (strings ending with a slash), then all files in the
+                    directory and its subdirectories are included as well.
 
                 int capture_local_variables
                     Whether the values of local variables shall be captured.
@@ -266,19 +277,23 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
         def allow_frame(frame):
             return True
     else:
-        def contains(frame, lst):
+        def contains(frame, lst, dirs):
             if frame.object in lst:
                 return True
             if frame.program_name and frame.program_name in lst:
                 return True
             if frame.file_name and frame.file_name in lst:
                 return True
+            if any(frame.file_name.startswith(d) for d in dirs):
+                return True
             return False
 
+        (excluded_dirs, exclude) = partition(exclude, lambda d: isinstance(d, str) and d.endswith("/"))
+        (included_dirs, include) = partition(include, lambda d: isinstance(d, str) and d.endswith("/"))
         def allow_frame(frame):
-            if include is not None and not contains(frame, include):
+            if include is not None and not contains(frame, include, included_dirs):
                 return False
-            if exclude and contains(frame, exclude):
+            if (exclude or excluded_dirs) and contains(frame, exclude, excluded_dirs):
                 return False
             return True
 

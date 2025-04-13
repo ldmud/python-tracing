@@ -30,7 +30,7 @@ class trace_cursor:
         self.pos = pos
         self.current = steps[pos]
 
-    def lpc_step_into(self) -> None:
+    def lpc_step_into(self) -> int:
         if not self.current.calls:
             return self.lpc_step_over()
 
@@ -38,23 +38,24 @@ class trace_cursor:
         self.steps = self.current.calls
         self.pos = 0
         self.current = self.steps[0]
+        return 1
 
-    def lpc_step_over(self) -> None:
+    def lpc_step_over(self) -> int:
         while True:
             if self.pos + 1 < len(self.steps):
                 self.pos += 1
                 self.current = self.steps[self.pos]
-                return
+                return 1
 
             if not self.stack:
-                return
+                return 0
 
             (self.steps, self.pos) = self.stack.pop()
             self.current = self.steps[self.pos]
 
     def lpc_step_out(self) -> None:
         if not self.stack:
-            return
+            return 0
 
         (self.steps, self.pos) = self.stack.pop()
         return self.lpc_step_over()
@@ -185,16 +186,17 @@ def efun_trace_call(opts: trace_call_options, result: ldmud.Lvalue, fun: ldmud.C
 
             A cursor object provides the following functions:
 
-                void step_into()
+                int step_into()
                     Moves to the cursor into the next function call.
+                    Returns 1 on success.
 
-                void step_over()
+                int step_over()
                     Moves to the cursor to state just beyond the next
-                    function call.
+                    function call. Returns 1 on success.
 
-                void step_out()
+                int step_out()
                     Moves to the cursor to the state after returning
-                    from the current function.
+                    from the current function. Returns 1 on success.
 
                 object get_object()
                     Returns the current object.
